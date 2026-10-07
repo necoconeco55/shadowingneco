@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1f6feb"><link rel="icon" href="icons/icon-192.png"><title>ビジネス英語 シャドーイング</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f7f6f2;--card:#fff;--tx:#1c1c1a;--sub:#6b6b66;--ac:#1f6feb;--bd:#e2e0d8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--tx:#eeeeea;--sub:#9a9a94;--ac:#5b9dff;--bd:#33332f}}
+:root[data-theme="dark"]{--bg:#161615;--card:#212120;--tx:#eeeeea;--sub:#9a9a94;--ac:#5b9dff;--bd:#33332f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;line-height:1.6}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:4px 0 12px}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:8px 12px}
+button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+button.big{background:var(--ac);color:#fff;border-color:var(--ac);padding:12px 16px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;margin:12px 0}
+.en{font-size:22px;font-weight:600;line-height:1.45}
+.ja{color:var(--sub);margin-top:8px}
+.hide{filter:blur(8px);user-select:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.sub{color:var(--sub);font-size:13px}
+.nav{display:flex;justify-content:space-between;align-items:center}
+#st{min-height:22px;margin-top:10px;font-size:14px}
+select{font:inherit;padding:7px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+</style></head><body><main>
+<h1>🎧 ビジネス英語 シャドーイング</h1>
+<div class="tabs" id="tabs"></div>
+<div class="card">
+  <div class="nav"><button id="prev">←</button><span class="sub" id="pos"></span><button id="next">→</button></div>
+  <div class="en" id="en" style="margin-top:14px"></div>
+  <div class="ja" id="ja"></div>
+  <div class="row">
+    <button id="tog" class="sub">英文を隠す</button>
+    <label class="sub">速度 <select id="rate"><option value="0.6">0.6x</option><option value="0.75">0.75x</option><option value="0.9" selected>0.9x</option><option value="1">1.0x</option></select></label>
+  </div>
+  <div class="row">
+    <button id="listen">① 聞く</button>
+    <button id="shadow" class="big">② シャドーイング(録音)</button>
+    <button id="mine">③ 自分の声</button>
+  </div>
+  <div id="st" class="sub"></div>
+  <div class="sub" id="cnt" style="margin-top:6px"></div>
+</div>
+<div class="sub">進め方:①で2〜3回聞く → 英文を隠して②で声を重ねる → ③で聞き比べ。イヤホン推奨(スピーカーだと録音にお手本が混ざります)。音声は端末の英語音声を使うため、声質は端末によって異なります。</div>
+</main>
+<script>
+const D={
+"会議":[["Let me start by giving you a quick overview of the agenda.","まず議題の概要を簡単にご説明します。"],["From our side, the main concern is the delivery schedule.","当社としての主な懸念は納期です。"],["Could you elaborate on that point a little more?","その点をもう少し詳しくご説明いただけますか。"],["Just to make sure we're on the same page, we're aiming for the end of next month.","認識合わせですが、来月末を目標にしています。"]],
+"交渉":[["That would be difficult for us, but what we could do is offer a volume discount.","それは難しいですが、数量割引なら可能です。"],["If you can commit to a larger order, we can revisit the price.","より大きな発注をお約束いただければ、価格を再検討できます。"],["Let me check with my team and get back to you by Friday.","チームに確認して、金曜までにご連絡します。"],["We'd like to find a solution that works for both sides.","双方にとって良い解決策を見つけたいと考えています。"]],
+"電話・オンライン":[["Sorry, could you say that again? The connection is a bit unstable.","すみません、もう一度お願いします。接続が少し不安定で。"],["Can you hear me okay? I'll share my screen now.","聞こえますか?画面を共有しますね。"],["Thank you for your time today. I'll send you a summary by email.","本日はありがとうございました。要約をメールでお送りします。"],["I'll follow up with the details after this call.","詳細はこの通話の後にフォローします。"]],
+"雑談":[["How was your trip? I hope the flight wasn't too tiring.","ご出張はいかがでしたか。フライトで疲れていないといいのですが。"],["It's great to finally meet you in person.","やっとお会いできて嬉しいです。"],["Have you been to Shenzhen before?","深圳に来られたことはありますか?"],["Let's grab lunch after the meeting if you have time.","お時間があれば、会議の後にランチでも。"]]
+};
+let cat=Object.keys(D)[0],i=0,hidden=false,blobUrl=null,voice=null,counts={};
+try{counts=JSON.parse(localStorage.getItem("shadowCounts")||"{}")}catch(e){}
+const $=id=>document.getElementById(id);
+function pickVoice(){const v=speechSynthesis.getVoices().filter(x=>/^en/i.test(x.lang));voice=v.find(x=>/en-US/i.test(x.lang)&&/(Samantha|Google|Aria|Jenny)/i.test(x.name))||v.find(x=>/en-US/i.test(x.lang))||v[0]||null}
+if("speechSynthesis" in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
+function render(){
+  $("tabs").innerHTML="";
+  Object.keys(D).forEach(k=>{const b=document.createElement("button");b.textContent=k;if(k===cat)b.className="on";b.onclick=()=>{cat=k;i=0;reset();render()};$("tabs").appendChild(b)});
+  const [en,ja]=D[cat][i];
+  $("en").textContent=en;$("ja").textContent=ja;
+  $("pos").textContent=(i+1)+" / "+D[cat].length;
+  $("en").classList.toggle("hide",hidden);
+  $("tog").textContent=hidden?"英文を表示":"英文を隠す";
+  $("cnt").textContent="この文の練習回数:"+(counts[en]||0)+"回";
+}
+function reset(){blobUrl=null;$("st").textContent="";speechSynthesis.cancel()}
+function speak(text,onend){
+  if(!("speechSynthesis" in window)){$("st").textContent="この環境は音声読み上げに対応していません。";return}
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang="en-US";if(voice)u.voice=voice;u.rate=parseFloat($("rate").value);
+  u.onend=()=>onend&&onend();u.onerror=()=>onend&&onend();
+  speechSynthesis.speak(u);
+}
+$("prev").onclick=()=>{i=(i-1+D[cat].length)%D[cat].length;reset();render()};
+$("next").onclick=()=>{i=(i+1)%D[cat].length;reset();render()};
+$("tog").onclick=()=>{hidden=!hidden;render()};
+$("listen").onclick=()=>{$("st").textContent="🔊 再生中…";speak(D[cat][i][0],()=>$("st").textContent="")};
+$("shadow").onclick=async()=>{
+  const en=D[cat][i][0];
+  let rec,chunks=[],stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    rec=new MediaRecorder(stream);
+    rec.ondataavailable=e=>chunks.push(e.data);
+    rec.onstop=()=>{blobUrl=URL.createObjectURL(new Blob(chunks,{type:rec.mimeType}));stream.getTracks().forEach(t=>t.stop());$("st").textContent="✅ 録音完了。③で聞き比べましょう。";counts[en]=(counts[en]||0)+1;try{localStorage.setItem("shadowCounts",JSON.stringify(counts))}catch(e){}render()};
+    rec.start();
+  }catch(e){rec=null;$("st").textContent="マイクを使えないため、録音なしで再生します。(ブラウザのマイク許可を確認してください)"}
+  if(rec)$("st").textContent="🎙 録音中…お手本に重ねて話してください";
+  speak(en,()=>{if(rec)setTimeout(()=>rec.state!=="inactive"&&rec.stop(),1200);else{counts[en]=(counts[en]||0)+1;try{localStorage.setItem("shadowCounts",JSON.stringify(counts))}catch(e){}render()}});
+};
+$("mine").onclick=()=>{if(!blobUrl){$("st").textContent="先に②で録音してください。";return}new Audio(blobUrl).play()};
+render();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script></body></html>
